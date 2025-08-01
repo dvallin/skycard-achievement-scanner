@@ -1,0 +1,16 @@
+{
+  "name": "flightradar",
+  "module": "index.ts",
+  "type": "module",
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "chalk": "^5.4.1",
+    "flightradarapi": "^1.4.0",
+    "p-limit": "^6.2.0"
+  }
+}
