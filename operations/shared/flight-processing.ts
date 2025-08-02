@@ -1,4 +1,4 @@
-import type { FlightRadar24API } from "flightradarapi";
+import type { Flight, FlightRadar24API } from "flightradarapi";
 import chalk from "chalk";
 import { getArrivals } from "../get-arrivals";
 import { getDepartures } from "../get-departures";
@@ -9,12 +9,13 @@ import type {
 } from "./types";
 import { isToday, sleep } from "./utils";
 import { DELAY_BETWEEN_CALLS_MS, MAX_RETRY_ATTEMPTS } from "./constants";
+import type { FlightData } from "../../types/flight-data";
 
 /**
  * Transforms API arrival data to BackwardFlightEntry format
  */
 export function transformToBackwardFlightEntry(
-  apiResponse: any,
+  apiResponse: FlightData,
   targetAirport: string,
 ): BackwardFlightEntry {
   const time = apiResponse.time;
@@ -48,7 +49,7 @@ export function transformToBackwardFlightEntry(
  * Transforms API departure data to ForwardFlightEntry format
  */
 export function transformToForwardFlightEntry(
-  apiResponse: any,
+  apiResponse: FlightData,
 ): ForwardFlightEntry {
   const time = apiResponse.time;
   const destination = apiResponse.airport.destination;
@@ -190,13 +191,13 @@ export async function fetchAllArrivals(
  * Transforms API flight data to AircraftFlightEntry format
  */
 export function transformToAircraftFlightEntry(
-  apiResponse: any,
+  apiResponse: Flight,
   entity: any,
 ): AircraftFlightEntry {
   return {
-    live: apiResponse.status?.live ?? false,
+    live: !apiResponse.onGround,
     status: "scheduled" as const, // Aircraft flights don't have arrival/departure status
-    code: apiResponse.identification?.number?.default ?? "",
+    code: apiResponse.aircraftCode,
     time: Date.now(), // Use current time for aircraft flights
     distance: apiResponse.getDistanceFrom(entity),
     onGround: apiResponse.onGround !== 0,
@@ -204,8 +205,7 @@ export function transformToAircraftFlightEntry(
       number | null,
       number | null,
     ],
-    number: apiResponse.number,
-    aircraftCode: apiResponse.aircraftCode,
+    registration: apiResponse.registration,
     origin: apiResponse.originAirportIata,
     destination: apiResponse.destinationAirportIata,
   };
@@ -220,7 +220,7 @@ export async function fetchFlightsByType(
   aircraftType: string,
 ): Promise<AircraftFlightEntry[]> {
   const flights = await api.getFlights(null, null, null, aircraftType);
-  const result = flights.map((flight: any) =>
+  const result = flights.map((flight: Flight) =>
     transformToAircraftFlightEntry(flight, entity),
   );
   result.sort((a, b) => a.distance - b.distance);

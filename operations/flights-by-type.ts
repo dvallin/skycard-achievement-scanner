@@ -29,6 +29,6 @@ export async function flightsByTypes(
   displayAircraftFlights(results);
 
   // Check for missing aircraft types and display summary
-  const foundTypes = new Set(results.map((flight) => flight.aircraftCode));
+  const foundTypes = new Set(results.map((flight) => flight.code));
   displayMissingAircraftTypes(aircraftTypes, foundTypes);
 }

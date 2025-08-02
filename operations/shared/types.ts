@@ -30,8 +30,7 @@ export interface AircraftFlightEntry extends BaseFlightEntry {
   distance: number;
   onGround: boolean;
   coordinates: [number | null, number | null];
-  number: string;
-  aircraftCode: string;
+  registration: string;
   origin?: string;
   destination?: string;
 }
