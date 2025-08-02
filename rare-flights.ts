@@ -1,5 +1,4 @@
-import { Entity, Flight, FlightRadar24API } from "flightradarapi";
-import chalk from "chalk";
+import { FlightRadar24API } from "flightradarapi";
 import { flightsByTypes } from "./operations/flights-by-type";
 
 const api = new FlightRadar24API();
@@ -32,4 +31,4 @@ const remainingAircrafts = [
 ];
 
 const sourceAirport = await api.getAirport("HAM");
-const results = await flightsByTypes(api, sourceAirport, ...remainingAircrafts);
+await flightsByTypes(api, sourceAirport, remainingAircrafts);
