@@ -7,21 +7,23 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+type Entry = {
+  target: string;
+  live: boolean;
+  status: string;
+  code: string;
+  time: number;
+  origin: {
+    country?: string;
+    code?: string;
+    name?: string;
+  };
+};
 export async function backwardLookup(
   api: FlightRadar24API,
   currentAirports: string[],
 ) {
-  let allFlights: {
-    live: boolean;
-    status: string;
-    code: string;
-    time: number;
-    origin: {
-      country?: string;
-      code?: string;
-      name?: string;
-    };
-  }[] = [];
+  let allFlights: Entry[] = [];
 
   // Set a delay between API calls to avoid hitting rate limits (429 errors)
   const DELAY_BETWEEN_CALLS_MS = 1500; // 1.5 seconds
@@ -44,6 +46,7 @@ export async function backwardLookup(
                   : "departed"
                 : "scheduled";
             return {
+              target: airport,
               live: f.status.live,
               status: status,
               code: f.identification.number.default,
@@ -95,7 +98,7 @@ export async function backwardLookup(
   );
 
   // Group by origin airport code
-  const grouped: Record<string, any[]> = {};
+  const grouped: Record<string, Entry[]> = {};
   for (const flight of allFlights) {
     const code = flight.origin.code || "UNKNOWN";
     if (!grouped[code]) grouped[code] = [];
@@ -106,7 +109,7 @@ export async function backwardLookup(
   Object.entries(grouped).forEach(([originCode, flights]) => {
     console.log(
       chalk.bold(
-        `\n${originCode} (${flights[0].origin.name}, ${flights[0].origin.country})`,
+        `\n${originCode} (${flights[0]?.origin.name}, ${flights[0]?.origin.country})`,
       ),
     );
     flights
@@ -124,7 +127,7 @@ export async function backwardLookup(
         else if (e.status === "scheduled") statusColor = chalk.blue;
 
         console.log(
-          `${chalk.gray(`${day}.${month}. ${hours}:${minutes}`)} - ${chalk.cyan(e.code)} ${statusColor(e.status)}`,
+          `${chalk.gray(`${day}.${month}. ${hours}:${minutes}`)} - ${chalk.cyan(e.code)} ${e.target} ${statusColor(e.status)}`,
         );
       });
   });

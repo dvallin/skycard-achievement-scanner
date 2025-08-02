@@ -2,7 +2,7 @@ import { FlightRadar24API } from "flightradarapi";
 import chalk from "chalk";
 import { getDepartures } from "./get-departures";
 
-export async function forwardSearch(
+export async function fowardLookup(
   api: FlightRadar24API,
   sourceAirport: string,
   destinationAirports: string[],
