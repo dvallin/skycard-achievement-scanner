@@ -5,4 +5,4 @@ import { countries, majorAirports } from "./open-asia";
 const api = new FlightRadar24API();
 
 const destinationAirports = countries.flatMap((c) => majorAirports[c] ?? []);
-await backwardLookup(api, destinationAirports);
+await backwardLookup(api, destinationAirports, false);

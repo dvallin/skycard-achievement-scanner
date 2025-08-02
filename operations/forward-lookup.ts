@@ -6,6 +6,7 @@ export async function fowardLookup(
   api: FlightRadar24API,
   sourceAirport: string,
   destinationAirports: string[],
+  onlyToday = true,
 ) {
   console.log(`flights from ${sourceAirport}`);
   const flights = await getDepartures(api, sourceAirport);
@@ -17,39 +18,43 @@ export async function fowardLookup(
   ).getTime();
   const todayEnd = todayStart + 24 * 60 * 60 * 1000;
 
-  flights
-    .map((f) => {
-      const time = f.time;
-      const destination = f.airport.destination;
-      const status =
-        f.time?.real.departure != null
-          ? f.time.real.arrival != null
-            ? "arrived"
-            : "departed"
-          : "scheduled";
-      return {
-        live: f.status.live,
-        status: status,
-        code: f.identification.number.default,
-        time:
-          (time?.real.departure ??
-            time?.estimated.departure ??
-            time?.scheduled.departure ??
-            0) * 1000,
-        destination: {
-          country: destination?.position?.country,
-          code: destination?.code?.iata,
-          name: destination?.position?.region.city,
-        },
-      };
-    })
-    .filter(
+  let allFlights = flights.map((f) => {
+    const time = f.time;
+    const destination = f.airport.destination;
+    const status =
+      f.time?.real.departure != null
+        ? f.time.real.arrival != null
+          ? "arrived"
+          : "departed"
+        : "scheduled";
+    return {
+      live: f.status.live,
+      status: status,
+      code: f.identification.number.default,
+      time:
+        (time?.real.departure ??
+          time?.estimated.departure ??
+          time?.scheduled.departure ??
+          0) * 1000,
+      destination: {
+        country: destination?.position?.country,
+        code: destination?.code?.iata,
+        name: destination?.position?.region.city,
+      },
+    };
+  });
+
+  if (onlyToday) {
+    allFlights = allFlights.filter(
       (flight) =>
         flight.time >= todayStart &&
         flight.time < todayEnd &&
         flight.destination.code &&
         destinationAirports.includes(flight.destination.code),
-    )
+    );
+  }
+
+  allFlights
     .sort((a, b) => a.time - b.time)
     .forEach((e) => {
       const date = new Date(e.time);
