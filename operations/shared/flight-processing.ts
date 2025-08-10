@@ -1,4 +1,5 @@
 import type { Flight, FlightRadar24API } from "flightradarapi";
+import { Entity } from "flightradarapi";
 import chalk from "chalk";
 import { getArrivals } from "../get-arrivals";
 import { getDepartures } from "../get-departures";
@@ -6,6 +7,7 @@ import type {
   ForwardFlightEntry,
   BackwardFlightEntry,
   AircraftFlightEntry,
+  AirportDistance,
 } from "./types";
 import { isToday, sleep } from "./utils";
 import { DELAY_BETWEEN_CALLS_MS, MAX_RETRY_ATTEMPTS } from "./constants";
@@ -41,6 +43,12 @@ export function transformToBackwardFlightEntry(
       country: origin?.position?.country?.name,
       code: origin?.code?.iata,
       name: origin?.position?.region.city,
+      coordinates: origin?.position
+        ? {
+            latitude: origin.position.latitude,
+            longitude: origin.position.longitude,
+          }
+        : undefined,
     },
   };
 }
@@ -225,4 +233,62 @@ export async function fetchFlightsByType(
   );
   result.sort((a, b) => a.distance - b.distance);
   return result;
+}
+
+/**
+ * Fetches airport details with coordinates
+ */
+export async function fetchAirportWithCoordinates(
+  api: FlightRadar24API,
+  airportCode: string,
+): Promise<Entity | null> {
+  try {
+    const airport = await api.getAirport(airportCode);
+    if (airport && airport.latitude && airport.longitude) {
+      return airport;
+    }
+    return null;
+  } catch (error) {
+    console.warn(
+      chalk.yellow(`⚠️  Error getting details for ${airportCode}: ${error}`),
+    );
+    return null;
+  }
+}
+
+/**
+ * Analyzes source airports by distance from an origin airport
+ */
+export function analyzeAirportsByDistance(
+  flightsByOrigin: Record<string, BackwardFlightEntry[]>,
+  originAirport: Entity,
+): AirportDistance[] {
+  const airportDistances: AirportDistance[] = [];
+
+  for (const [originCode, flights] of Object.entries(flightsByOrigin)) {
+    if (flights.length === 0 || !originCode || originCode === "UNKNOWN") {
+      continue;
+    }
+
+    const firstFlight = flights[0];
+    if (!firstFlight?.origin?.coordinates) continue;
+
+    // Create a temporary Entity for distance calculation
+    const sourceAirport = new Entity(
+      firstFlight.origin.coordinates.latitude,
+      firstFlight.origin.coordinates.longitude,
+    );
+
+    const distance = originAirport.getDistanceFrom(sourceAirport);
+
+    airportDistances.push({
+      code: originCode,
+      name: firstFlight.origin.name || "Unknown",
+      country: firstFlight.origin.country || "Unknown",
+      distance,
+      flightCount: flights.length,
+    });
+  }
+
+  return airportDistances.sort((a, b) => a.distance - b.distance);
 }

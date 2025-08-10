@@ -7,5 +7,6 @@ export const MAX_RETRY_ATTEMPTS = 5;
 
 // Display limits
 export const FLIGHTS_TO_DISPLAY = 5;
-export const WINDOWS_TO_DISPLAY = 3;
+export const WINDOWS_TO_DISPLAY = 4;
 export const AIRPORTS_TO_DISPLAY = 4;
+export const TOP_AIRPORTS_TO_DISPLAY = 10;

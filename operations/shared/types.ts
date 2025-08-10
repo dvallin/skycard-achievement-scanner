@@ -22,6 +22,10 @@ export interface BackwardFlightEntry extends BaseFlightEntry {
     country?: string;
     code?: string;
     name?: string;
+    coordinates?: {
+      latitude: number;
+      longitude: number;
+    };
   };
 }
 
@@ -74,4 +78,13 @@ export function isAircraftFlightEntry(
   flight: FlightEntry,
 ): flight is AircraftFlightEntry {
   return "distance" in flight && "aircraftCode" in flight;
+}
+
+// Airport distance entry (for distance-based analysis)
+export interface AirportDistance {
+  code: string;
+  name: string;
+  country: string;
+  distance: number;
+  flightCount: number;
 }

@@ -6,13 +6,17 @@ import type {
   ForwardFlightEntry,
   BackwardFlightEntry,
   AircraftFlightEntry,
+  AirportDistance,
 } from "./types";
 import { formatTime, getStatusColor } from "./utils";
 import {
   FLIGHTS_TO_DISPLAY,
   WINDOWS_TO_DISPLAY,
   AIRPORTS_TO_DISPLAY,
+  TOP_AIRPORTS_TO_DISPLAY,
 } from "./constants";
+import { country_reverse_geocoding } from "country-reverse-geocoding";
+const crg = country_reverse_geocoding();
 
 /**
  * Display flights within a time window
@@ -132,7 +136,15 @@ export function displayAirportAnalysis(airport: AirportAnalysis): void {
     chalk.gray(`   Found ${airport.bestWindows.length} optimal window(s):`),
   );
 
-  const windowsToShow = airport.bestWindows.slice(0, WINDOWS_TO_DISPLAY);
+  const now = Date.now();
+  const windowsToShow = airport.bestWindows
+    .slice()
+    .sort((a, b) => {
+      const aMid = (a.start + a.end) / 2;
+      const bMid = (b.start + b.end) / 2;
+      return Math.abs(aMid - now) - Math.abs(bMid - now);
+    })
+    .slice(0, WINDOWS_TO_DISPLAY);
 
   windowsToShow.forEach((window, windowIndex) => {
     const startDate = new Date(window.start);
@@ -303,15 +315,23 @@ export function displayAircraftFlight(flight: AircraftFlightEntry): void {
   const coordStr = chalk.gray(
     `[${flight.coordinates.map((c) => c?.toFixed(3)).join(", ")}]`,
   );
+  const [lat, lon] = flight.coordinates;
+  let locationStr = "";
+  if (lat !== null && lon !== null) {
+    const country = crg.get_country(lat, lon);
+    if (country) {
+      locationStr = chalk.green(`${country.name} (${country.code})`);
+    }
+  }
 
   if (flight.onGround) {
     console.log(
-      `${aircraftStr} (${registrationStr}): ${chalk.greenBright("on ground")} ${distStr} @ ${coordStr}`,
+      `${aircraftStr} (${registrationStr}): ${chalk.greenBright("on ground")} ${distStr} @ ${coordStr} ${locationStr}`,
     );
   } else {
     const routeStr = `${chalk.blue(flight.origin)} ${chalk.white("→")} ${chalk.blue(flight.destination)}`;
     console.log(
-      `${aircraftStr} (${registrationStr}): ${routeStr} ${distStr} @ ${coordStr}`,
+      `${aircraftStr} (${registrationStr}): ${routeStr} ${distStr} @ ${coordStr} ${locationStr}`,
     );
   }
 }
@@ -341,5 +361,81 @@ export function displayMissingAircraftTypes(
     );
   } else {
     console.log(chalk.greenBright("All aircraft types found!"));
+  }
+}
+
+/**
+ * Display airports sorted by distance
+ */
+export function displayAirportsByDistance(
+  airports: AirportDistance[],
+  flightsByOrigin: Record<string, BackwardFlightEntry[]>,
+): void {
+  console.log(
+    chalk.bold.cyan(
+      `\n📍 TOP ${TOP_AIRPORTS_TO_DISPLAY} SOURCE AIRPORTS BY DISTANCE`,
+    ),
+  );
+  console.log(chalk.gray("Airports sorted by distance from origin:\n"));
+
+  const topAirports = airports.slice(0, TOP_AIRPORTS_TO_DISPLAY);
+
+  topAirports.forEach((airport, index) => {
+    const rankStr = chalk.gray(`${(index + 1).toString().padStart(2)}.`);
+    const codeStr = chalk.bold.yellow(airport.code);
+    const nameStr = chalk.white(airport.name);
+    const countryStr = chalk.gray(`(${airport.country})`);
+    const distStr = chalk.magenta(`${airport.distance.toFixed(0)}km`);
+    const flightStr = chalk.cyan(
+      `${airport.flightCount} flight${airport.flightCount === 1 ? "" : "s"}`,
+    );
+
+    console.log(
+      `${rankStr} ${codeStr} ${nameStr} ${countryStr} - ${distStr} - ${flightStr}`,
+    );
+
+    // Display flights for this airport
+    const flights = flightsByOrigin[airport.code] || [];
+    flights
+      .sort((a, b) => a.time - b.time)
+      .forEach((flight) => {
+        const flightDate = new Date(flight.time);
+        const statusColor = getStatusColor(flight.status);
+
+        console.log(
+          `      ${chalk.gray(formatTime(flightDate))} - ${chalk.cyan(flight.code)} → ${chalk.white(flight.target)} ${statusColor(flight.status)}`,
+        );
+      });
+
+    console.log(""); // Empty line between airports
+  });
+
+  if (airports.length > TOP_AIRPORTS_TO_DISPLAY) {
+    console.log(
+      chalk.gray(
+        `... and ${airports.length - TOP_AIRPORTS_TO_DISPLAY} more airports`,
+      ),
+    );
+  }
+}
+
+/**
+ * Display airports by distance analysis summary
+ */
+export function displayAirportsDistanceSummary(
+  airports: AirportDistance[],
+): void {
+  console.log(
+    chalk.bold.green(`\n✨ Found ${airports.length} source airports`),
+  );
+
+  if (airports.length > 0) {
+    const closest = airports[0]!;
+    const farthest = airports[airports.length - 1]!;
+    console.log(
+      chalk.gray(
+        `📏 Distance range: ${closest.distance.toFixed(0)}km - ${farthest.distance.toFixed(0)}km`,
+      ),
+    );
   }
 }
