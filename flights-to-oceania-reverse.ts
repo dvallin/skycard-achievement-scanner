@@ -1,6 +1,6 @@
 import { FlightRadar24API } from "flightradarapi";
 import { backwardLookup } from "./operations/backward-lookup";
-import { countries, majorAirports } from "./open-asia";
+import { countries, majorAirports } from "./open-oceania";
 
 const api = new FlightRadar24API();
 

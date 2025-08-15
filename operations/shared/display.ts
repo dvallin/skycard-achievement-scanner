@@ -19,6 +19,23 @@ import { country_reverse_geocoding } from "country-reverse-geocoding";
 const crg = country_reverse_geocoding();
 
 /**
+ * Check if a timestamp falls within the undesirable time range (23:00-06:00)
+ */
+function isInUndesirableTimeRange(timestamp: number): boolean {
+  const date = new Date(timestamp);
+  const hour = date.getHours();
+  return hour >= 23 || hour < 6;
+}
+
+/**
+ * Calculate a penalty score for window sorting based on time preferences
+ */
+function getWindowTimePenalty(windowStart: number, windowEnd: number): number {
+  const midpoint = (windowStart + windowEnd) / 2;
+  return isInUndesirableTimeRange(midpoint) ? 1000000 : 0; // Large penalty for undesirable hours
+}
+
+/**
  * Display flights within a time window
  */
 export function displayWindowFlights<T extends BaseFlightEntry>(
@@ -142,6 +159,17 @@ export function displayAirportAnalysis(airport: AirportAnalysis): void {
     .sort((a, b) => {
       const aMid = (a.start + a.end) / 2;
       const bMid = (b.start + b.end) / 2;
+
+      // Apply time preference penalty
+      const aPenalty = getWindowTimePenalty(a.start, a.end);
+      const bPenalty = getWindowTimePenalty(b.start, b.end);
+      const penaltyDiff = aPenalty - bPenalty;
+
+      if (penaltyDiff !== 0) {
+        return penaltyDiff;
+      }
+
+      // If penalties are equal, sort by distance to current time
       return Math.abs(aMid - now) - Math.abs(bMid - now);
     })
     .slice(0, WINDOWS_TO_DISPLAY);
@@ -271,7 +299,26 @@ export function displayOptimalForwardAnalysis<T extends ForwardFlightEntry>(
     ),
   );
 
-  const windowsToShow = bestWindows.slice(0, WINDOWS_TO_DISPLAY);
+  const now = Date.now();
+  const windowsToShow = bestWindows
+    .slice()
+    .sort((a, b) => {
+      const aMid = (a.start + a.end) / 2;
+      const bMid = (b.start + b.end) / 2;
+
+      // Apply time preference penalty
+      const aPenalty = getWindowTimePenalty(a.start, a.end);
+      const bPenalty = getWindowTimePenalty(b.start, b.end);
+      const penaltyDiff = aPenalty - bPenalty;
+
+      if (penaltyDiff !== 0) {
+        return penaltyDiff;
+      }
+
+      // If penalties are equal, sort by distance to current time
+      return Math.abs(aMid - now) - Math.abs(bMid - now);
+    })
+    .slice(0, WINDOWS_TO_DISPLAY);
 
   windowsToShow.forEach((window, windowIndex) => {
     const startDate = new Date(window.start);

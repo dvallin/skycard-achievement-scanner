@@ -4,6 +4,6 @@ import { fowardLookup } from "./operations/forward-lookup";
 
 const api = new FlightRadar24API();
 
-const sourceAirport = "CPH";
+const sourceAirport = "SXM";
 const destinationAirports = countries.flatMap((c) => majorAirports[c] ?? []);
 await fowardLookup(api, sourceAirport, destinationAirports, false);
