@@ -3,7 +3,7 @@ import { flightsByTypes } from "./operations/flights-by-type";
 
 const api = new FlightRadar24API();
 
-const remainingAircrafts = [
+const rareAircraft = [
   "SONX",
   "PA23",
   "CRER",
@@ -20,4 +20,4 @@ const remainingAircrafts = [
 ];
 
 const sourceAirport = await api.getAirport("HAM");
-await flightsByTypes(api, sourceAirport, remainingAircrafts);
+await flightsByTypes(api, sourceAirport, rareAircraft);
