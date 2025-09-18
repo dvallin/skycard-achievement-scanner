@@ -1,0 +1,22 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "entry": [
+    "airports-to-oceania-by-distance.ts",
+    "flights-to-oceania-reverse.ts",
+    "flights-to-oceania.ts",
+    "open-oceania.ts",
+    "rare-flights.ts",
+    "season1/flights.ts",
+    "season1/heavy-weight.ts",
+    "season1/speed-demon.ts",
+    "types/airport.ts",
+    "types/country-reverse-geocoding.d.ts",
+    "types/flight-data.ts"
+  ],
+  "project": [
+    "**/*.ts"
+  ],
+  "ignore": [],
+  "ignoreBinaries": [],
+  "ignoreDependencies": []
+}

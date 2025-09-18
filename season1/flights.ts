@@ -7,4 +7,10 @@ const api = new FlightRadar24API();
 
 const ham = await api.getAirport("HAM");
 const dxb = await api.getAirport("DXB");
-await flightsByTypes(api, [ham, dxb], [...heavyWeights, ...speedDemon]);
+const lax = await api.getAirport("LAX");
+const hi = await api.getAirport("HNL");
+await flightsByTypes(
+  api,
+  [ham, dxb, lax, hi],
+  [...heavyWeights, ...speedDemon],
+);

@@ -3,15 +3,11 @@ import {
   fetchDepartures,
   filterFlightsForToday,
   filterByDestinations,
-  findOptimalForwardWindows,
   displayDepartureSchedule,
-  displayOptimalForwardAnalysis,
+  analyzeDeparturesByDiversity,
+  displayDepartureDiversitySummary,
 } from "./shared";
 
-/**
- * Forward lookup: Analyzes departures from a source airport to specified destinations
- * to find optimal 30-minute windows with the most unique destinations
- */
 export async function fowardLookup(
   api: FlightRadar24API,
   sourceAirport: string,
@@ -34,9 +30,9 @@ export async function fowardLookup(
   // Display individual departure flights
   displayDepartureSchedule(allFlights);
 
-  // Find optimal 30-minute windows
-  const bestWindows = findOptimalForwardWindows(allFlights);
-
-  // Display the optimal window analysis
-  displayOptimalForwardAnalysis(allFlights, bestWindows, sourceAirport);
+  // Analyze and display departure diversity
+  const diversityData = analyzeDeparturesByDiversity(allFlights, sourceAirport);
+  if (diversityData) {
+    displayDepartureDiversitySummary(diversityData, allFlights);
+  }
 }

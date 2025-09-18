@@ -3,14 +3,15 @@ import {
   fetchAllArrivals,
   filterFlightsForToday,
   groupFlightsByOrigin,
-  analyzeAllAirports,
+  analyzeAirportsByDiversity,
   displayFlightsByOrigin,
-  displayOptimalBackwardAnalysis,
+  displayAirportsByDiversity,
+  displayDiversitySummary,
 } from "./shared";
 
 /**
- * Backward lookup: Analyzes arrivals at specified airports to find optimal
- * 30-minute windows with the most unique destination airports by departure origin
+ * Backward lookup: Analyzes arrivals at specified airports and displays
+ * origin airports sorted by their destination diversity and next flight time
  */
 export async function backwardLookup(
   api: FlightRadar24API,
@@ -31,9 +32,10 @@ export async function backwardLookup(
   // Display flights grouped by origin
   displayFlightsByOrigin(flightsByOrigin);
 
-  // Analyze airports to find optimal 30-minute windows
-  const airportResults = analyzeAllAirports(flightsByOrigin);
+  // Analyze airports by destination diversity
+  const airportResults = analyzeAirportsByDiversity(flightsByOrigin);
 
-  // Display the optimal window analysis
-  displayOptimalBackwardAnalysis(allFlights, flightsByOrigin, airportResults);
+  // Display the diversity analysis
+  displayAirportsByDiversity(airportResults, flightsByOrigin);
+  displayDiversitySummary(airportResults);
 }

@@ -5,12 +5,8 @@ export const countries = [
   "micronesia",
   "nauru",
   "northern-mariana-islands",
-  "papua-new-guinea",
   "solomon-islands",
   "tuvalu",
-  "vanuatu",
-  "united-states-minor-outlying-islands",
-  "wallis-and-futuna",
 ];
 
 export const majorAirports: Record<string, string[]> = {

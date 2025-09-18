@@ -61,25 +61,6 @@ export interface AirportAnalysis {
   bestWindows: TimeWindow<BackwardFlightEntry>[];
 }
 
-// Type guards to distinguish between flight entry types
-export function isForwardFlightEntry(
-  flight: FlightEntry,
-): flight is ForwardFlightEntry {
-  return "destination" in flight;
-}
-
-export function isBackwardFlightEntry(
-  flight: FlightEntry,
-): flight is BackwardFlightEntry {
-  return "target" in flight && "origin" in flight;
-}
-
-export function isAircraftFlightEntry(
-  flight: FlightEntry,
-): flight is AircraftFlightEntry {
-  return "distance" in flight && "aircraftCode" in flight;
-}
-
 // Airport distance entry (for distance-based analysis)
 export interface AirportDistance {
   code: string;
@@ -87,4 +68,15 @@ export interface AirportDistance {
   country: string;
   distance: number;
   flightCount: number;
+}
+
+// Airport diversity entry (for diversity-based analysis)
+export interface AirportDiversity {
+  code: string;
+  name: string;
+  country: string;
+  distinctDestinations: number;
+  totalFlights: number;
+  nextFlightTime: number;
+  destinations: Set<string>;
 }
