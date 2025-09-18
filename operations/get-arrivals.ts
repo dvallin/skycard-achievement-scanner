@@ -1,6 +1,7 @@
 import type { FlightRadar24API } from "flightradarapi";
 import type { FlightData } from "../types/flight-data";
 import type { Airport } from "../types/airport";
+import { DELAY_BETWEEN_CALLS_MS, sleep } from "./shared";
 
 export async function getArrivals(
   api: FlightRadar24API,
@@ -19,6 +20,9 @@ export async function getArrivals(
     total = page.total;
     flights.push(...data.map((a) => a.flight));
     currentPage++;
+    if (currentPage <= total) {
+      sleep(DELAY_BETWEEN_CALLS_MS);
+    }
   } while (currentPage <= total);
   return flights;
 }

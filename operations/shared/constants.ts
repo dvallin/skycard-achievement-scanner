@@ -1,5 +1,5 @@
 // Time-based constants
-export const DELAY_BETWEEN_CALLS_MS = 1500; // 1.5 seconds
+export const DELAY_BETWEEN_CALLS_MS = 1000; // 1 second
 
 // Retry configuration
 export const MAX_RETRY_ATTEMPTS = 5;
