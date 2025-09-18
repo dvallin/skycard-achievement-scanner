@@ -31,7 +31,7 @@ export interface BackwardFlightEntry extends BaseFlightEntry {
 
 // Aircraft-based flight entry (for flights-by-type operations)
 export interface AircraftFlightEntry extends BaseFlightEntry {
-  distance: number;
+  closestAirport: { name: string; code: string; distance: number };
   onGround: boolean;
   coordinates: [number | null, number | null];
   registration: string;

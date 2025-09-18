@@ -1,9 +1,9 @@
 import { FlightRadar24API } from "flightradarapi";
-import { countries, majorAirports } from "./open-america";
 import { fowardLookup } from "./operations/forward-lookup";
+import { countries, majorAirports } from "./open-oceania";
 
 const api = new FlightRadar24API();
 
-const sourceAirport = "SXM";
+const source = "NAN";
 const destinationAirports = countries.flatMap((c) => majorAirports[c] ?? []);
-await fowardLookup(api, sourceAirport, destinationAirports, false);
+await fowardLookup(api, source, destinationAirports, false);

@@ -1,5 +1,5 @@
 import type { Flight, FlightRadar24API } from "flightradarapi";
-import { Entity } from "flightradarapi";
+import { Entity, Airport as FRAirport } from "flightradarapi";
 import chalk from "chalk";
 import { getArrivals } from "../get-arrivals";
 import { getDepartures } from "../get-departures";
@@ -12,6 +12,7 @@ import type {
 import { isToday, sleep } from "./utils";
 import { DELAY_BETWEEN_CALLS_MS, MAX_RETRY_ATTEMPTS } from "./constants";
 import type { FlightData } from "../../types/flight-data";
+import type { Airport } from "../../types/airport";
 
 /**
  * Transforms API arrival data to BackwardFlightEntry format
@@ -200,14 +201,21 @@ export async function fetchAllArrivals(
  */
 export function transformToAircraftFlightEntry(
   apiResponse: Flight,
-  entity: any,
+  airports: FRAirport[],
 ): AircraftFlightEntry {
+  const closestAirport = airports
+    .map((a) => ({
+      distance: apiResponse.getDistanceFrom(a),
+      name: a.name,
+      code: a.iata,
+    }))
+    .sort((a, b) => a.distance - b.distance)[0]!;
   return {
     live: !apiResponse.onGround,
     status: "scheduled" as const, // Aircraft flights don't have arrival/departure status
     code: apiResponse.aircraftCode,
     time: Date.now(), // Use current time for aircraft flights
-    distance: apiResponse.getDistanceFrom(entity),
+    closestAirport,
     onGround: apiResponse.onGround !== 0,
     coordinates: [apiResponse.latitude, apiResponse.longitude] as [
       number | null,
@@ -224,14 +232,14 @@ export function transformToAircraftFlightEntry(
  */
 export async function fetchFlightsByType(
   api: FlightRadar24API,
-  entity: any,
+  airports: FRAirport[],
   aircraftType: string,
 ): Promise<AircraftFlightEntry[]> {
   const flights = await api.getFlights(null, null, null, aircraftType);
   const result = flights.map((flight: Flight) =>
-    transformToAircraftFlightEntry(flight, entity),
+    transformToAircraftFlightEntry(flight, airports),
   );
-  result.sort((a, b) => a.distance - b.distance);
+  result.sort((a, b) => a.closestAirport.distance - b.closestAirport.distance);
   return result;
 }
 

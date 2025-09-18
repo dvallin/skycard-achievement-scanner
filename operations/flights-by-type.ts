@@ -1,4 +1,4 @@
-import type { Entity, FlightRadar24API } from "flightradarapi";
+import type { Airport, Entity, FlightRadar24API } from "flightradarapi";
 import pLimit from "p-limit";
 import {
   fetchFlightsByType,
@@ -14,12 +14,12 @@ const limit = pLimit(5);
  */
 export async function flightsByTypes(
   api: FlightRadar24API,
-  entity: Entity,
+  airports: Airport[],
   aircraftTypes: string[],
 ): Promise<void> {
   // Fetch flights for all aircraft types concurrently with rate limiting
   const requests = aircraftTypes.map((aircraftType) =>
-    limit(() => fetchFlightsByType(api, entity, aircraftType)),
+    limit(() => fetchFlightsByType(api, airports, aircraftType)),
   );
 
   const allResults = await Promise.all(requests);

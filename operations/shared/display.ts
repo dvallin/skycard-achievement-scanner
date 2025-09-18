@@ -358,7 +358,9 @@ export function displayOptimalForwardAnalysis<T extends ForwardFlightEntry>(
 export function displayAircraftFlight(flight: AircraftFlightEntry): void {
   const aircraftStr = chalk.cyan.bold(flight.code);
   const registrationStr = chalk.yellow(flight.registration);
-  const distStr = chalk.magenta(`${flight.distance.toFixed()}km`);
+  const distStr = chalk.magenta(
+    `${flight.closestAirport.distance.toFixed()}km (${flight.closestAirport.code})`,
+  );
   const coordStr = chalk.gray(
     `[${flight.coordinates.map((c) => c?.toFixed(3)).join(", ")}]`,
   );
@@ -388,7 +390,7 @@ export function displayAircraftFlight(flight: AircraftFlightEntry): void {
  */
 export function displayAircraftFlights(flights: AircraftFlightEntry[]): void {
   flights
-    .sort((a, b) => a.distance - b.distance)
+    .sort((a, b) => a.closestAirport.distance - b.closestAirport.distance)
     .forEach(displayAircraftFlight);
 }
 
