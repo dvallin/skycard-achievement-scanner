@@ -2,13 +2,16 @@ import type { FlightRadar24API } from "flightradarapi";
 import chalk from "chalk";
 import {
   fetchDepartures,
+  fetchArrivalsWithRetry,
   filterFlightsForToday,
   filterByDestinations,
+  groupFlightsByOrigin,
   formatTime,
   getStatusColor,
   sleep,
+  fetchArrivals,
 } from "./shared";
-import type { ForwardFlightEntry } from "./shared";
+import type { ForwardFlightEntry, BackwardFlightEntry } from "./shared";
 import { DELAY_BETWEEN_CALLS_MS } from "./shared";
 
 /**
@@ -19,10 +22,10 @@ export interface AirportPair {
   destination: string;
 }
 
-/**
- * Route flight entry extending ForwardFlightEntry with route information
- */
-export interface RouteFlightEntry extends ForwardFlightEntry {
+export interface RouteFlightEntry {
+  status: string;
+  code: string;
+  time: number;
   sourceAirport: string;
   destinationAirport: string;
 }
@@ -53,53 +56,114 @@ export async function flightsBetweenPairs(
   });
   console.log("");
 
-  const allRouteFlights: RouteFlightEntry[] = [];
-  let totalFlightsFound = 0;
+  const routes: RouteFlightEntry[] = [];
 
-  // Process each airport pair
+  // Collect unique source airports and group pairs by source
+  const sourceGroups = new Map<string, AirportPair[]>();
+  airportPairs.forEach((pair) => {
+    if (!sourceGroups.has(pair.source)) {
+      sourceGroups.set(pair.source, []);
+    }
+    sourceGroups.get(pair.source)!.push(pair);
+  });
+
+  const uniqueSources = Array.from(sourceGroups.keys());
+
+  // Prefetch departures for each unique source airport
+  const departuresBySource = new Map<string, ForwardFlightEntry[]>();
+  const arrivalsBySource = new Map<string, BackwardFlightEntry[]>();
+
+  for (const source of uniqueSources) {
+    try {
+      let departures = await fetchDepartures(api, source);
+      // Filter to today's flights if requested (do this once per source)
+      if (onlyToday) {
+        departures = filterFlightsForToday(departures);
+      }
+      departuresBySource.set(source, departures);
+
+      console.log(
+        chalk.gray(
+          `  Fetched ${departures.length} departure${departures.length === 1 ? "" : "s"} from ${source}`,
+        ),
+      );
+    } catch (error) {
+      console.error(
+        chalk.red(`Failed to fetch flights from ${source}: ${error}`),
+      );
+      departuresBySource.set(source, []); // Set empty array to prevent errors
+    }
+
+    try {
+      let departures = await fetchArrivals(api, source);
+      // Filter to today's flights if requested (do this once per source)
+      if (onlyToday) {
+        departures = filterFlightsForToday(departures);
+      }
+      arrivalsBySource.set(source, departures);
+
+      console.log(
+        chalk.gray(
+          `  Fetched ${departures.length} departure${departures.length === 1 ? "" : "s"} from ${source}`,
+        ),
+      );
+    } catch (error) {
+      console.error(
+        chalk.red(`Failed to fetch flights from ${source}: ${error}`),
+      );
+      arrivalsBySource.set(source, []); // Set empty array to prevent errors
+    }
+  }
+
+  // Process each airport pair using prefetched data
   for (const pair of airportPairs) {
     try {
       console.log(
-        chalk.gray(
-          `Fetching flights from ${pair.source} to ${pair.destination}...`,
-        ),
+        chalk.gray(`Processing route ${pair.source} → ${pair.destination}...`),
       );
 
-      // Fetch all departure flights from the source airport
-      let flights = await fetchDepartures(api, pair.source);
+      const departures = departuresBySource.get(pair.source) || [];
+      const arrivals = arrivalsBySource.get(pair.source) || [];
 
       // Filter to only include flights to the specified destination airport
-      flights = filterByDestinations(flights, [pair.destination]);
-
-      // Filter to today's flights if requested
-      if (onlyToday) {
-        flights = filterFlightsForToday(flights);
-      }
+      const relevantDepartures = filterByDestinations(departures, [
+        pair.destination,
+      ]);
 
       // Transform to RouteFlightEntry with route information
-      const routeFlights: RouteFlightEntry[] = flights.map((flight) => ({
-        ...flight,
-        sourceAirport: pair.source,
-        destinationAirport: pair.destination,
-      }));
-
-      allRouteFlights.push(...routeFlights);
-      totalFlightsFound += routeFlights.length;
-
-      console.log(
-        chalk.gray(
-          `  Found ${routeFlights.length} flight${routeFlights.length === 1 ? "" : "s"} on this route`,
-        ),
+      const outgoingRoutes: RouteFlightEntry[] = relevantDepartures.map(
+        (flight) => ({
+          ...flight,
+          sourceAirport: pair.source,
+          destinationAirport: pair.destination,
+        }),
       );
 
-      // Add delay between API calls to avoid rate limiting
-      if (airportPairs.indexOf(pair) < airportPairs.length - 1) {
-        await sleep(DELAY_BETWEEN_CALLS_MS);
-      }
+      const relevantArrivals = arrivals.filter(
+        (a) => a.origin === pair.destination,
+      );
+
+      // Transform to BackwardRouteFlightEntry with route information
+      const incomingRoutes: RouteFlightEntry[] = relevantArrivals.map(
+        (flight) => ({
+          ...flight,
+          sourceAirport: pair.source,
+          destinationAirport: pair.destination,
+        }),
+      );
+
+      routes.push(...incomingRoutes, ...outgoingRoutes);
+
+      const totalFound = incomingRoutes.length + outgoingRoutes.length;
+      console.log(
+        chalk.gray(
+          `  Found ${totalFound} arrival flight${totalFound === 1 ? "" : "s"} on this route`,
+        ),
+      );
     } catch (error) {
       console.error(
         chalk.red(
-          `Failed to fetch flights from ${pair.source} to ${pair.destination}: ${error}`,
+          `Failed to process route ${pair.source} to ${pair.destination}: ${error}`,
         ),
       );
     }
@@ -107,11 +171,11 @@ export async function flightsBetweenPairs(
 
   console.log(
     chalk.gray(
-      `\n📊 Total flights found: ${totalFlightsFound}${onlyToday ? " today" : ""}\n`,
+      `\n📊 Total flights found: ${routes.length}${onlyToday ? " today" : ""}\n`,
     ),
   );
 
-  if (allRouteFlights.length === 0) {
+  if (routes.length === 0) {
     console.log(
       chalk.yellow(
         `No flights found for any of the specified routes${onlyToday ? " today" : ""}`,
@@ -120,14 +184,14 @@ export async function flightsBetweenPairs(
     return;
   }
 
-  // Sort all flights by departure time
-  const sortedFlights = allRouteFlights.sort((a, b) => a.time - b.time);
+  // Combine and sort all flights by departure time
+  const sortedRoutes = routes.sort((a, b) => a.time - b.time);
 
   // Display flights grouped by route
-  displayFlightsByRoute(sortedFlights);
+  displayFlightsByRoute(sortedRoutes);
 
   // Display overall summary
-  displayOverallSummary(sortedFlights, airportPairs);
+  displayOverallSummary(sortedRoutes, airportPairs);
 }
 
 /**

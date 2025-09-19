@@ -12,7 +12,6 @@ import type {
 import { isToday, sleep } from "./utils";
 import { DELAY_BETWEEN_CALLS_MS, MAX_RETRY_ATTEMPTS } from "./constants";
 import type { FlightData } from "../../types/flight-data";
-import type { Airport } from "../../types/airport";
 
 /**
  * Transforms API arrival data to BackwardFlightEntry format
@@ -164,6 +163,15 @@ export async function fetchArrivalsWithRetry(
   }
 
   return [];
+}
+
+export async function fetchArrivals(
+  api: FlightRadar24API,
+  airport: string,
+): Promise<BackwardFlightEntry[]> {
+  console.log(chalk.gray(`Fetching arrivals for ${airport}...`));
+  const flights = await getArrivals(api, airport);
+  return flights.map((f) => transformToBackwardFlightEntry(f, airport));
 }
 
 /**
