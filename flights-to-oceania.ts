@@ -4,6 +4,6 @@ import { countries, majorAirports } from "./open-oceania";
 
 const api = new FlightRadar24API();
 
-const source = "NAN";
+const source = "SIN";
 const destinationAirports = countries.flatMap((c) => majorAirports[c] ?? []);
 await fowardLookup(api, source, destinationAirports, false);

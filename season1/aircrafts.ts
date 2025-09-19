@@ -1,16 +1,14 @@
-import { FlightRadar24API } from "flightradarapi";
+import { FlightRadar24API, Airport } from "flightradarapi";
 import heavyWeights from "./heavy-weight";
 import speedDemon from "./speed-demon";
 import { flightsByTypes } from "../operations/flights-by-type";
 
 const api = new FlightRadar24API();
 
-const ham = await api.getAirport("HAM");
-const dxb = await api.getAirport("DXB");
-const lax = await api.getAirport("LAX");
-const hi = await api.getAirport("HNL");
-await flightsByTypes(
-  api,
-  [ham, dxb, lax, hi],
-  [...heavyWeights, ...speedDemon],
-);
+const homeAirports = ["HAM", "DXB", "LAX", "HNL", "JHB"];
+
+const airports: Airport[] = [];
+for (const code of homeAirports) {
+  airports.push(await api.getAirport(code));
+}
+await flightsByTypes(api, airports, [...heavyWeights, ...speedDemon]);

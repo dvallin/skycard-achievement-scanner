@@ -7,8 +7,8 @@ export default [
   // "B77W", // Boeing 777-300ER
   // "C5M", // Locheed C-5 Super Galaxy
   "A345", // Airbus A340-500
-  "A124", // Antonov An-124 Ruslan
+  // "A124", // Antonov An-124 Ruslan
   "B743", // Boeing 747-300
-  "BLCF", // Boeing Dreamlifter
+  // "BLCF", // Boeing Dreamlifter
   "SLCH", // Scaled 351 Stratolaunch
 ];

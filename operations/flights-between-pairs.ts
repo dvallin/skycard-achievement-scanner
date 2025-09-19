@@ -1,7 +1,7 @@
 import type { FlightRadar24API } from "flightradarapi";
 import chalk from "chalk";
 import {
-  fetchDepartures,
+  fetchDeparturesWithRetry,
   fetchArrivalsWithRetry,
   filterFlightsForToday,
   filterByDestinations,
@@ -9,10 +9,41 @@ import {
   formatTime,
   getStatusColor,
   sleep,
-  fetchArrivals,
 } from "./shared";
 import type { ForwardFlightEntry, BackwardFlightEntry } from "./shared";
 import { DELAY_BETWEEN_CALLS_MS } from "./shared";
+
+/**
+ * Rate limiting improvements to avoid 429 errors:
+ * - Uses retry logic for both departures and arrivals
+ * - Implements adaptive delays that increase after rate limit hits
+ * - Adds exponential backoff in retry attempts
+ * - Spaces out API calls between airports and between departures/arrivals
+ */
+
+// Adaptive rate limiting state
+let currentDelayMs = DELAY_BETWEEN_CALLS_MS;
+let lastRateLimitTime = 0;
+const RATE_LIMIT_COOLDOWN_MS = 30000; // 30 seconds
+
+function getAdaptiveDelay(): number {
+  const timeSinceLastRateLimit = Date.now() - lastRateLimitTime;
+
+  // If we hit a rate limit recently, use longer delays
+  if (timeSinceLastRateLimit < RATE_LIMIT_COOLDOWN_MS) {
+    currentDelayMs = Math.min(currentDelayMs * 1.5, 10000); // Cap at 10 seconds
+  } else {
+    // Gradually reduce delay if no recent rate limits
+    currentDelayMs = Math.max(currentDelayMs * 0.9, DELAY_BETWEEN_CALLS_MS);
+  }
+
+  return currentDelayMs;
+}
+
+function recordRateLimit(): void {
+  lastRateLimitTime = Date.now();
+  currentDelayMs = Math.min(currentDelayMs * 2, 10000); // Double the delay, cap at 10s
+}
 
 /**
  * Airport pair interface
@@ -75,7 +106,7 @@ export async function flightsBetweenPairs(
 
   for (const source of uniqueSources) {
     try {
-      let departures = await fetchDepartures(api, source);
+      let departures = await fetchDeparturesWithRetry(api, source);
       // Filter to today's flights if requested (do this once per source)
       if (onlyToday) {
         departures = filterFlightsForToday(departures);
@@ -88,30 +119,52 @@ export async function flightsBetweenPairs(
         ),
       );
     } catch (error) {
+      if (String(error).includes("429")) {
+        recordRateLimit();
+      }
       console.error(
         chalk.red(`Failed to fetch flights from ${source}: ${error}`),
       );
       departuresBySource.set(source, []); // Set empty array to prevent errors
     }
 
+    // Add adaptive delay between departures and arrivals calls
+    const adaptiveDelay = getAdaptiveDelay();
+    console.log(
+      chalk.gray(`  Waiting ${adaptiveDelay}ms before next API call...`),
+    );
+    await sleep(adaptiveDelay);
+
     try {
-      let departures = await fetchArrivals(api, source);
+      let arrivals = await fetchArrivalsWithRetry(api, source);
       // Filter to today's flights if requested (do this once per source)
       if (onlyToday) {
-        departures = filterFlightsForToday(departures);
+        arrivals = filterFlightsForToday(arrivals);
       }
-      arrivalsBySource.set(source, departures);
+      arrivalsBySource.set(source, arrivals);
 
       console.log(
         chalk.gray(
-          `  Fetched ${departures.length} departure${departures.length === 1 ? "" : "s"} from ${source}`,
+          `  Fetched ${arrivals.length} arrival${arrivals.length === 1 ? "" : "s"} from ${source}`,
         ),
       );
     } catch (error) {
+      if (String(error).includes("429")) {
+        recordRateLimit();
+      }
       console.error(
         chalk.red(`Failed to fetch flights from ${source}: ${error}`),
       );
       arrivalsBySource.set(source, []); // Set empty array to prevent errors
+    }
+
+    // Add adaptive delay between processing different airports
+    if (source !== uniqueSources[uniqueSources.length - 1]) {
+      const finalDelay = getAdaptiveDelay();
+      console.log(
+        chalk.gray(`  Waiting ${finalDelay}ms before next airport...`),
+      );
+      await sleep(finalDelay);
     }
   }
 

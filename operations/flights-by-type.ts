@@ -1,4 +1,4 @@
-import type { Airport, Entity, FlightRadar24API } from "flightradarapi";
+import type { Airport, FlightRadar24API } from "flightradarapi";
 import pLimit from "p-limit";
 import {
   fetchFlightsByType,

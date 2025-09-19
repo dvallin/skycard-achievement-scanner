@@ -10,7 +10,12 @@ import type {
   AirportDistance,
 } from "./types";
 import { isToday, sleep } from "./utils";
-import { DELAY_BETWEEN_CALLS_MS, MAX_RETRY_ATTEMPTS } from "./constants";
+import {
+  DELAY_BETWEEN_CALLS_MS,
+  MAX_RETRY_ATTEMPTS,
+  EXPONENTIAL_BACKOFF_BASE_MS,
+  EXPONENTIAL_BACKOFF_MULTIPLIER,
+} from "./constants";
 import type { FlightData } from "../../types/flight-data";
 
 /**
@@ -146,13 +151,17 @@ export async function fetchArrivalsWithRetry(
       attempts++;
 
       if (String(error).includes("429")) {
+        // Exponential backoff: base delay * multiplier^attempts
+        const delayMs =
+          EXPONENTIAL_BACKOFF_BASE_MS *
+          Math.pow(EXPONENTIAL_BACKOFF_MULTIPLIER, attempts - 1);
         console.error(
           chalk.red(
             `Rate limit hit for ${airport} (429 Too Many Requests). ` +
-              `Retrying in ${DELAY_BETWEEN_CALLS_MS}ms... (Attempt ${attempts}/${MAX_RETRY_ATTEMPTS})`,
+              `Retrying in ${delayMs}ms... (Attempt ${attempts}/${MAX_RETRY_ATTEMPTS})`,
           ),
         );
-        await sleep(DELAY_BETWEEN_CALLS_MS);
+        await sleep(delayMs);
       } else {
         console.error(
           chalk.red(`Failed to fetch arrivals for ${airport}: ${error}`),
@@ -172,6 +181,47 @@ export async function fetchArrivals(
   console.log(chalk.gray(`Fetching arrivals for ${airport}...`));
   const flights = await getArrivals(api, airport);
   return flights.map((f) => transformToBackwardFlightEntry(f, airport));
+}
+
+/**
+ * Fetches departures for an airport with retry logic
+ */
+export async function fetchDeparturesWithRetry(
+  api: FlightRadar24API,
+  airport: string,
+): Promise<ForwardFlightEntry[]> {
+  let attempts = 0;
+
+  while (attempts < MAX_RETRY_ATTEMPTS) {
+    try {
+      console.log(chalk.gray(`Fetching departures for ${airport}...`));
+      const flights = await getDepartures(api, airport);
+      return flights.map(transformToForwardFlightEntry);
+    } catch (error: any) {
+      attempts++;
+
+      if (String(error).includes("429")) {
+        // Exponential backoff: base delay * multiplier^attempts
+        const delayMs =
+          EXPONENTIAL_BACKOFF_BASE_MS *
+          Math.pow(EXPONENTIAL_BACKOFF_MULTIPLIER, attempts - 1);
+        console.error(
+          chalk.red(
+            `Rate limit hit for ${airport} (429 Too Many Requests). ` +
+              `Retrying in ${delayMs}ms... (Attempt ${attempts}/${MAX_RETRY_ATTEMPTS})`,
+          ),
+        );
+        await sleep(delayMs);
+      } else {
+        console.error(
+          chalk.red(`Failed to fetch departures for ${airport}: ${error}`),
+        );
+        break;
+      }
+    }
+  }
+
+  return [];
 }
 
 /**
