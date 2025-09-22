@@ -1,5 +1,6 @@
-import type { Flight, FlightRadar24API } from "flightradarapi";
+import { Flight, type FlightRadar24API } from "flightradarapi";
 import chalk from "chalk";
+import { formatTime } from "./shared";
 
 /**
  * Simple airport pair interface
@@ -37,11 +38,7 @@ export interface SearchFlightEntry {
     latitude: number;
     longitude: number;
   };
-  time?: {
-    scheduled?: { departure?: number; arrival?: number };
-    real?: { departure?: number | null; arrival?: number | null };
-    estimated?: { departure?: number | null; arrival?: number | null };
-  };
+  arrivalTime?: number;
   status?: "arrived" | "departed" | "scheduled";
 }
 
@@ -219,14 +216,13 @@ async function enrichFlightsWithTimeData(
     try {
       const details = (await api.getFlightDetails(
         flight as unknown as Flight,
-      )) as { time: SearchFlightEntry["time"] };
+      )) as { time: any };
 
       if (details?.time) {
-        flight.time = {
-          scheduled: details.time.scheduled,
-          real: details.time.real,
-          estimated: details.time.estimated,
-        };
+        flight.arrivalTime =
+          details.time?.real?.arrival ??
+          details.time?.estimated?.arrival ??
+          details.time?.scheduled?.arrival;
 
         // Determine status based on time data
         flight.status =
@@ -236,15 +232,7 @@ async function enrichFlightsWithTimeData(
               : "departed"
             : "scheduled";
       }
-
-      // Add delay between API calls to avoid rate limiting
-      if (i < flights.length - 1) {
-        await new Promise((resolve) => setTimeout(resolve, 100));
-      }
     } catch (error) {
-      console.error(
-        chalk.gray(`Failed to get details for ${flight.code}: ${error}`),
-      );
       // Continue with next flight even if this one fails
     }
   }
@@ -261,85 +249,30 @@ function displayBidirectionalResults(
 
   // Sort flights by departure time
   const sortedFlights = flights
-    .filter((flight) => flight.time) // Only include flights with time data
+    .filter((flight) => flight.arrivalTime) // Only include flights with time data
     .sort((a, b) => {
-      const timeA =
-        a.time?.real?.departure ??
-        a.time?.estimated?.departure ??
-        a.time?.scheduled?.departure ??
-        0;
-      const timeB =
-        b.time?.real?.departure ??
-        b.time?.estimated?.departure ??
-        b.time?.scheduled?.departure ??
-        0;
-      return timeA - timeB;
+      return (a.arrivalTime ?? 0) - (b.arrivalTime ?? 0);
     });
 
   if (sortedFlights.length > 0) {
     console.log(
-      chalk.bold.blue(`\n📋 FLIGHTS BY TIME (${sortedFlights.length})`),
+      chalk.bold.blue(`\n📋 Already departed (${sortedFlights.length})`),
     );
 
     sortedFlights.forEach((flight) => {
-      const departureTime =
-        flight.time?.real?.departure ??
-        flight.time?.estimated?.departure ??
-        flight.time?.scheduled?.departure;
-      const arrivalTime =
-        flight.time?.real?.arrival ??
-        flight.time?.estimated?.arrival ??
-        flight.time?.scheduled?.arrival;
-
-      const departureStr = departureTime
-        ? new Date(departureTime * 1000).toLocaleString()
-        : "Unknown";
-      const arrivalStr = arrivalTime
-        ? new Date(arrivalTime * 1000).toLocaleString()
-        : "Unknown";
-
-      const statusIcon =
-        flight.status === "arrived"
-          ? "🛬"
-          : flight.status === "departed"
-            ? "🛫"
-            : "📅";
-      const statusColor =
-        flight.status === "arrived"
-          ? chalk.green
-          : flight.status === "departed"
-            ? chalk.yellow
-            : chalk.blue;
-
-      const aircraftInfo = flight.aircraft
-        ? ` • ${chalk.gray(flight.aircraft)}`
-        : "";
-      const registration = flight.registration
-        ? ` • ${chalk.gray(flight.registration)}`
-        : "";
-      const coordinates = flight.coordinates
-        ? ` • ${chalk.gray(`${flight.coordinates.latitude.toFixed(1)}, ${flight.coordinates.longitude.toFixed(1)}`)}`
-        : "";
-
+      const arrivalStr = formatTime(new Date((flight.arrivalTime ?? 0) * 1000));
       console.log(
-        `  ${statusIcon} ${chalk.cyan(flight.code)} ${chalk.yellow(flight.sourceAirport)} → ${chalk.yellow(flight.destinationAirport)} ${statusColor(flight.status || "scheduled")}`,
+        `  ${chalk.cyan(flight.code)} ${chalk.yellow(flight.sourceAirport)} → ${chalk.yellow(flight.destinationAirport)} ${chalk.gray("Arrival:")} ${chalk.white(arrivalStr)}`,
       );
-      console.log(
-        `    ${chalk.gray("Departure:")} ${chalk.white(departureStr)} | ${chalk.gray("Arrival:")} ${chalk.white(arrivalStr)}`,
-      );
-      console.log(
-        `    ${chalk.gray(flight.operator)}${aircraftInfo}${registration}${coordinates}`,
-      );
-      console.log(""); // Empty line for readability
     });
   }
 
   // Display flights without time data
-  const flightsWithoutTime = flights.filter((flight) => !flight.time);
+  const flightsWithoutTime = flights.filter((flight) => !flight.arrivalTime);
   if (flightsWithoutTime.length > 0) {
     console.log(
       chalk.yellow(
-        `\n⚠️  FLIGHTS WITHOUT TIME DATA (${flightsWithoutTime.length})`,
+        `\nScheduled (or missing data) (${flightsWithoutTime.length})`,
       ),
     );
     flightsWithoutTime.forEach((flight) => {
