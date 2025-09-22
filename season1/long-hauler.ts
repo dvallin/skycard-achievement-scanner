@@ -4,7 +4,7 @@ export default [
   { source: "AKL", destination: "JFK" }, // Auckland <-> New York (JFK)
   // { source: "SIN", destination: "LAX" }, // Singapore <-> Los Angeles
   { source: "SIN", destination: "JFK" }, // Singapore <-> New York (JFK)
-  { source: "SIN", destination: "EWR" }, // Singapore <-> New York (Newark)
+  // { source: "SIN", destination: "EWR" }, // Singapore <-> New York (Newark)
   { source: "PER", destination: "LHR" }, // Perth <-> London
   { source: "PER", destination: "CDG" }, // Perth <-> Paris
   { source: "DFW", destination: "MEL" }, // Dallas <-> Melbourne
